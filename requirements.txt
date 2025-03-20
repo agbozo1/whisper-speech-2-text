@@ -1,4 +1,3 @@
-torch
 tempfile
 soundfile
 accelerate
