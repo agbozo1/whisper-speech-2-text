@@ -1,70 +1,75 @@
 import streamlit as st
 import torch
-from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+from torchaudio import transforms
+import torchaudio
+from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 import tempfile
-import os
-import soundfile as sf
+#import os
 
-# Set Streamlit page configuration
-st.set_page_config(page_title="Whisper Speech Recognition", layout="centered")
+# Streamlit app config
+st.set_page_config(page_title="Romanian Speech Recognition", layout="centered")
+st.title("🗣️ Romanian Speech-to-Text with Wav2Vec2")
+st.write("Upload an audio file (wav, mp3, flac) and get the transcription in Romanian.")
 
-st.title("🎙️ Whisper Speech-to-Text Transcription")
-st.write("Upload an audio file and get a transcription using Whisper Large V3 Turbo.")
+# Device selection
+device = "cuda" if torch.cuda.is_available() else "cpu"
+st.write(f"Using device: `{device}`")
 
-# Set device and torch dtype
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
-torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-
-# Load model and processor once
+# Load Model and Processor
 @st.cache_resource(show_spinner=True)
-def load_model():
-    model_id = "openai/whisper-large-v3-turbo"
-    
-    model = AutoModelForSpeechSeq2Seq.from_pretrained(
-        model_id,
-        torch_dtype=torch_dtype,
-        low_cpu_mem_usage=True,
-        use_safetensors=True
-    )
+def load_model_and_processor():
+    processor = Wav2Vec2Processor.from_pretrained("anton-l/wav2vec2-large-xlsr-53-romanian")
+    model = Wav2Vec2ForCTC.from_pretrained("anton-l/wav2vec2-large-xlsr-53-romanian")
     model.to(device)
+    return processor, model
 
-    processor = AutoProcessor.from_pretrained(model_id)
+processor, model = load_model_and_processor()
 
-    pipe = pipeline(
-        "automatic-speech-recognition",
-        model=model,
-        tokenizer=processor.tokenizer,
-        feature_extractor=processor.feature_extractor,
-        torch_dtype=torch_dtype,
-        device=device,
-    )
-    
-    return pipe
+# Resampler (48kHz -> 16kHz)
+resampler = transforms.Resample(orig_freq=48_000, new_freq=16_000)
 
-pipe = load_model()
-
-# File uploader
+# Upload Audio File
 audio_file = st.file_uploader("Upload an audio file (wav, mp3, flac)", type=["wav", "mp3", "flac"])
 
 if audio_file is not None:
-    # Create a temporary file to store the uploaded audio
+    # Save to temp file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
         tmp_file.write(audio_file.read())
-        temp_file_path = tmp_file.name
-    
+        tmp_file_path = tmp_file.name
+
+    # Display audio player
     st.audio(audio_file, format="audio/wav")
 
-    st.info("Transcribing the audio... Please wait.")
+    # Load and preprocess the audio
+    speech_array, sampling_rate = torchaudio.load(tmp_file_path)
 
-    # Load and process audio using soundfile
-    audio_input, sample_rate = sf.read(temp_file_path)
+    # If not 48kHz, resample from actual sampling rate to 16kHz
+    if sampling_rate != 48_000:
+        resampler = transforms.Resample(orig_freq=sampling_rate, new_freq=16_000)
+    
+    # Resample the audio to 16kHz and convert to numpy
+    speech = resampler(speech_array).squeeze().numpy()
 
-    # Transcribe the audio
-    result = pipe({"array": audio_input, "sampling_rate": sample_rate})
+    # Tokenize input
+    inputs = processor(speech, sampling_rate=16_000, return_tensors="pt", padding=True)
 
-    # Show result
-    st.success("Transcription Completed!")
-    st.markdown(f"### 📝 Transcribed Text:\n\n{result['text']}")
+    # Move to device
+    input_values = inputs.input_values.to(device)
+    attention_mask = inputs.attention_mask.to(device)
+
+    # Run inference
+    with torch.no_grad():
+        logits = model(input_values, attention_mask=attention_mask).logits
+
+    # Get prediction
+    predicted_ids = torch.argmax(logits, dim=-1)
+
+    # Decode the prediction
+    transcription = processor.batch_decode(predicted_ids)
+
+    st.success("✅ Transcription Completed!")
+    st.markdown(f"### 📝 Transcribed Text:")
+    st.markdown(f"> {transcription[0]}")
 
     # Clean up temp file
-    os.remove(temp_file_path)
+    #os.remove(tmp_file_path)
