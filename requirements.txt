@@ -1,5 +1,4 @@
 torch
-transformers
 tempfile
 soundfile
 accelerate
