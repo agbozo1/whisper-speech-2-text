@@ -47,8 +47,21 @@ if audio_file is not None:
     if sampling_rate != 48_000:
         resampler = transforms.Resample(orig_freq=sampling_rate, new_freq=16_000)
     
-    # Resample the audio to 16kHz and convert to numpy
-    speech = resampler(speech_array).squeeze().numpy()
+    # Load and preprocess the audio
+    speech_array, sampling_rate = torchaudio.load(tmp_file_path)
+
+    # If not 48kHz, resample from actual sampling rate to 16kHz
+    if sampling_rate != 48_000:
+        resampler = transforms.Resample(orig_freq=sampling_rate, new_freq=16_000)
+
+    # Resample the audio to 16kHz
+    resampled = resampler(speech_array)
+
+    # Convert stereo to mono if needed
+    if resampled.shape[0] > 1:
+        speech = resampled.mean(dim=0).numpy()
+    else:
+        speech = resampled.squeeze().numpy()
 
     # Tokenize input
     inputs = processor(speech, sampling_rate=16_000, return_tensors="pt", padding=True)

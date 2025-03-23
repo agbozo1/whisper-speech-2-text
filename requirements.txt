@@ -2,4 +2,4 @@ pip
 streamlit
 torch
 torchaudio
-transformers==4.29.2
+transformers
