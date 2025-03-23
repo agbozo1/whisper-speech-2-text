@@ -3,3 +3,4 @@ streamlit
 torch
 torchaudio
 transformers
+audio_recorder_streamlit
