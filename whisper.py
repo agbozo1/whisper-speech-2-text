@@ -85,10 +85,15 @@ if audio_bytes:
         resampled = speech_array
 
     # stereo to mono
-    if resampled.shape[0] > 1:
-        speech = resampled.mean(dim=0)
-    else:
-        speech = resampled.squeeze(0)
+    #if resampled.shape[0] > 1:
+    #    speech = resampled.mean(dim=0)
+    #else:
+    #    speech = resampled.squeeze(0)
+    # Handle mono / stereo consistently
+    if resampled.dim() == 1:
+        resampled = resampled.unsqueeze(0)
+
+    speech = resampled.mean(dim=0).numpy()
 
     # Processor input
     input_features = processor(speech.numpy(), sampling_rate=16_000, return_tensors="pt").input_features
