@@ -83,16 +83,24 @@ if audio_bytes:
         resampled = resampler(speech_array)
     else:
         resampled = speech_array
+    
+    resampled = resampler(speech_array)
 
     # stereo to mono
     #if resampled.shape[0] > 1:
     #    speech = resampled.mean(dim=0)
     #else:
     #    speech = resampled.squeeze(0)
+    
+    # Ensure we are working with a PyTorch tensor
+    if isinstance(resampled, np.ndarray):
+        resampled = torch.tensor(resampled)
+
     # Handle mono / stereo consistently
     if resampled.dim() == 1:
         resampled = resampled.unsqueeze(0)
 
+    # Convert stereo -> mono
     speech = resampled.mean(dim=0).numpy()
 
     # Processor input
