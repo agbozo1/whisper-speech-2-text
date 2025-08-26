@@ -84,7 +84,6 @@ if audio_bytes:
     else:
         resampled = speech_array
     
-    resampled = resampler(speech_array)
 
     # stereo to mono
     #if resampled.shape[0] > 1:
