@@ -9,6 +9,7 @@ import os
 import numpy as np
 import io
 from scipy.io.wavfile import write as write_wav
+from pydub import AudioSegment
 
 st.set_page_config(page_title="Romanian Speech Recognition", layout="centered")
 st.title("🗣️ Romanian Speech-to-Text Transcriber")
@@ -18,6 +19,14 @@ sound_source = st.radio(label="Select Audio Input Method:",
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 st.write(f"Using device: `{device}`")
+
+
+def load_audio(file_path, target_sr=16000):
+    # Load with pydub (works for mp3, flac, wav)
+    audio = AudioSegment.from_file(file_path)
+    audio = audio.set_frame_rate(target_sr).set_channels(1)  # resample + mono
+    samples = np.array(audio.get_array_of_samples()).astype(np.float32) / (2**15)
+    return samples, target_sr
 
 @st.cache_resource(show_spinner=True)
 def load_model_and_processor():
@@ -65,7 +74,8 @@ if audio_bytes:
     st.audio(audio_bytes, format="audio/wav")
 
     # Load and preprocess audio
-    speech_array, sampling_rate = torchaudio.load(tmp_file_path)
+    #speech_array, sampling_rate = torchaudio.load(tmp_file_path)
+    speech_array, sampling_rate = load_audio(tmp_file_path, target_sr=16000)
 
     # Resample to 16kHz if necessary
     if sampling_rate != 16_000:
