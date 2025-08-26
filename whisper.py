@@ -103,7 +103,7 @@ if audio_bytes:
     speech = resampled.mean(dim=0).numpy()
 
     # Processor input
-    input_features = processor(speech.numpy(), sampling_rate=16_000, return_tensors="pt").input_features
+    input_features = processor(speech, sampling_rate=16_000, return_tensors="pt").input_features
     input_features = input_features.to(device)
 
     # Whisper transcription
