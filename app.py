@@ -5,6 +5,7 @@ import torchaudio
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 import tempfile
 from pydub import AudioSegment
+import numpy as np 
 
 st.set_page_config(page_title="Romanian Speech Recognition", layout="centered")
 st.title("🗣️ Romanian Speech-to-Text with Wav2Vec2")
